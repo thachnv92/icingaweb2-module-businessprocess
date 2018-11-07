@@ -9,6 +9,8 @@ use Icinga\Module\Businessprocess\Html\Container;
 use Icinga\Module\Businessprocess\Html\HtmlString;
 use Icinga\Module\Businessprocess\Html\Icon;
 use Icinga\Module\Businessprocess\Html\Link;
+use Icinga\Module\Businessprocess\Html\Audio;
+use Icinga\Module\Businessprocess\Html\Source;
 use Icinga\Module\Businessprocess\ImportedNode;
 use Icinga\Module\Businessprocess\MonitoredNode;
 use Icinga\Module\Businessprocess\Node;
@@ -31,6 +33,7 @@ class NodeTile extends BaseElement
      * @var Container
      */
     private $actions;
+    private $sound;
 
     /**
      * NodeTile constructor.
@@ -55,23 +58,41 @@ class NodeTile extends BaseElement
         return $this->actions;
     }
 
+    protected function sound()
+    {
+        if ($this->sound === null) {
+            $this->addSound();
+        }
+        return $this->sound;
+    }
+
     protected function addActions()
     {
         $this->actions = Container::create(
             array(
                 'class'            => 'actions',
-                'data-base-target' => '_next'
+                'data-base-target' => '_self'
             )
         );
 
         return $this->add($this->actions);
+    }
+    protected function addSound()
+    {
+        $this->sound = Container::create(
+            array(
+                'class'            => 'sound',
+                'data-base-target' => '_self'
+            )
+        );
+
+        return $this->add($this->sound);
     }
 
     public function render()
     {
         $renderer = $this->renderer;
         $node = $this->node;
-
         $attributes = $this->attributes();
         $attributes->add('class', $renderer->getNodeClasses($node));
         $attributes->add('id', 'bp-' . (string) $node);
@@ -200,8 +221,10 @@ class NodeTile extends BaseElement
 
     protected function addDetailsActions()
     {
+        $renderer = $this->renderer;
         $node = $this->node;
         $url = $this->getMainNodeUrl($node);
+        $status = $renderer->getNodeClasses($node);
 
         if ($node instanceof BpNode) {
             $this->actions()->add(Link::create(
@@ -221,19 +244,20 @@ class NodeTile extends BaseElement
                     'data-base-target' => '_next'
                 )
             ));
-
-            $url = $node->getInfoUrl();
-
-            if ($url !== null) {
-                $this->actions()->add(Link::create(
-                    Icon::create('info-circled'),
-                    $url,
+            if($status[0] == 'critical'){
+                $this->actions()->add(Audio::create(
+                    Source::create(
+                    'sound/critical_service.mp3',
                     null,
                     array(
-                        'title' => sprintf('%s: %s', $this->translate('More information'), $url),
-                        'class' => 'node-info'
-                    )
-                ));
+                      'type' => 'audio/mpeg'
+                  )),
+                  array(
+                      'controls'=> '',
+                      'style' => 'display: none',
+                      'autoplay' => "true"
+                  )
+              ));
             }
         } else {
             // $url = $this->makeMonitoredNodeUrl($node);
@@ -269,18 +293,9 @@ class NodeTile extends BaseElement
                     'Show the business impact of this node by simulating a specific state'
                 ))
             ));
-
-            $this->actions()->add(Link::create(
-                Icon::create('edit'),
-                $renderer->getUrl()->with('action', 'editmonitored')->with('editmonitorednode', $node->getName()),
-                null,
-                array('title' => $this->translate('Modify this monitored node'))
-            ));
         }
 
-        if (! $this->renderer->getBusinessProcess()->getMetadata()->canModify()
-            || $node->getName() === '__unbound__'
-        ) {
+        if (! $this->renderer->getBusinessProcess()->getMetadata()->canModify()) {
             return;
         }
 
@@ -306,3 +321,4 @@ class NodeTile extends BaseElement
         ));
     }
 }
+
